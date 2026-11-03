@@ -10,6 +10,7 @@ from typing import Any, Awaitable, Callable
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
 # Module-level state
@@ -38,6 +39,13 @@ def _get_swarm_runtime():
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
+
+class SwarmRunRequest(BaseModel):
+    """Validated request body for starting a Swarm run."""
+
+    preset_name: str = Field(min_length=1)
+    user_vars: dict[str, Any] = Field(default_factory=dict)
+
 
 AuthDep = Callable[..., Awaitable[Any] | Any]
 
@@ -89,11 +97,11 @@ def register_swarm_routes(
         return list_presets()
 
     @app.post("/swarm/runs", dependencies=[Depends(require_auth)])
-    async def create_swarm_run(payload: dict, http_request: Request):
-        """Start a swarm run: body must include preset_name and user_vars."""
+    async def create_swarm_run(payload: SwarmRunRequest, http_request: Request):
+        """Start a swarm run using a validated, documented request body."""
         runtime = _get_swarm_runtime()
-        preset_name = payload.get("preset_name", "")
-        user_vars = payload.get("user_vars", {})
+        preset_name = payload.preset_name
+        user_vars = payload.user_vars
         try:
             run = runtime.start_run(
                 preset_name,
