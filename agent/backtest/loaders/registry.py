@@ -35,6 +35,7 @@ _registration_lock = Lock()
 # ``test_valid_sources_covers_all_registered_loaders`` enforces full coverage.
 VALID_SOURCES: set[str] = {
     "tushare",
+    "coinbase",
     "okx",
     "nobitex",
     "wallex",
@@ -98,6 +99,7 @@ def _ensure_registered() -> None:
 
         _loader_modules = [
             "backtest.loaders.tushare",
+            "backtest.loaders.coinbase_loader",
             "backtest.loaders.okx",
             "backtest.loaders.nobitex",
             "backtest.loaders.wallex",
@@ -241,7 +243,7 @@ FALLBACK_CHAINS: dict[str, list[str]] = {
     # so those two are reachable only through the user's local files.
     "vietnam_equity": ["yahoo", "yfinance", "local"],
     # OKX first (native), then dedicated Binance, then generic CCXT / Yahoo.
-    "crypto": ["okx", "binance", "ccxt", "yfinance", "local"],
+    "crypto": ["coinbase", "okx", "binance", "ccxt", "yfinance", "local"],
     # tushare led this chain while implementing no futures endpoint at all
     # (#1395): ``resolve_loader`` walks FALLBACK_CHAINS and never consults a
     # loader's ``markets`` set, so trimming that set alone would have left
