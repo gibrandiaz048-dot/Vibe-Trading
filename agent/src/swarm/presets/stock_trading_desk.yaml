@@ -69,7 +69,7 @@ agents:
       4. For a SELL, only reduce/close shares already held in the paper account.
          Never create a short position.
       5. Only when all gates pass, call stock_paper_execution with operation="execute",
-         the account_id, and orders containing symbol, side, qty, limit and stop_loss.
+         the account_id, and orders containing symbol, side, qty and limit; BUY orders also include stop_loss.
          Use the exact account_id returned by initialize/status. The tool settles
          the order on the latest completed US session unless to_date is supplied.
       6. Check the returned result. A committed=true result is an executed paper
