@@ -125,13 +125,14 @@ class StockPaperExecutionTool(BaseTool):
                     raise ValueError(f"orders[{index}] has invalid side, qty, limit, or stop_loss")
                 if side == "buy" and stop >= limit:
                     raise ValueError(f"{symbol}: stop_loss must be below buy limit")
-                if side == "sell" and stop <= limit:
-                    raise ValueError(f"{symbol}: stop_loss must be above sell limit")
-                risk = qty * abs(limit - stop)
-                if risk > equity * _MAX_RISK_FRACTION + 1e-8:
-                    raise ValueError(
-                        f"{symbol}: estimated stop risk ${risk:.2f} exceeds 2% account equity (${equity * _MAX_RISK_FRACTION:.2f})"
-                    )
+                if side == "buy":
+                    if stop >= limit:
+                        raise ValueError(f"{symbol}: stop_loss must be below buy limit")
+                    risk = qty * abs(limit - stop)
+                    if risk > equity * _MAX_RISK_FRACTION + 1e-8:
+                        raise ValueError(
+                            f"{symbol}: estimated stop risk ${risk:.2f} exceeds 2% account equity (${equity * _MAX_RISK_FRACTION:.2f})"
+                        )
                 if side == "sell" and (symbol not in positions or qty > float(positions[symbol]["qty"])):
                     raise ValueError(f"{symbol}: sell quantity exceeds held paper position")
                 clean_orders.append({"symbol": symbol.strip().upper(), "side": side, "qty": qty, "limit": limit})
