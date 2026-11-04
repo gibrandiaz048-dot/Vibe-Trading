@@ -108,7 +108,7 @@ class StockPaperExecutionTool(BaseTool):
                 return json.dumps({"status": "error", "error": "Executor restricted to US stocks"})
 
             state = account["account_state"]
-            positions = {p["symbol"]: p for p in state.get("positions", [])}
+            positions = {str(p["symbol"]).strip().upper(): p for p in state.get("positions", [])}
             equity = float(state.get("cash", 0.0)) + sum(
                 float(p["qty"]) * float(p["avg_cost"]) for p in positions.values()
             )
@@ -118,16 +118,15 @@ class StockPaperExecutionTool(BaseTool):
                 side = order.get("side")
                 qty = float(order.get("qty", 0))
                 limit = float(order.get("limit", 0))
-                stop = float(order.get("stop_loss", 0))
+                stop_raw = order.get("stop_loss")
+                stop = float(stop_raw) if stop_raw is not None else 0.0
                 if not isinstance(symbol, str) or not symbol.strip():
                     raise ValueError(f"orders[{index}].symbol is required")
-                if side not in ("buy", "sell") or not all(math.isfinite(v) and v > 0 for v in (qty, limit, stop)):
-                    raise ValueError(f"orders[{index}] has invalid side, qty, limit, or stop_loss")
-                if side == "buy" and stop >= limit:
-                    raise ValueError(f"{symbol}: stop_loss must be below buy limit")
+                if side not in ("buy", "sell") or not all(math.isfinite(v) and v > 0 for v in (qty, limit)):
+                    raise ValueError(f"orders[{index}] has invalid side, qty, or limit")
                 if side == "buy":
-                    if stop >= limit:
-                        raise ValueError(f"{symbol}: stop_loss must be below buy limit")
+                    if not math.isfinite(stop) or stop <= 0 or stop >= limit:
+                        raise ValueError(f"{symbol}: BUY requires a positive stop_loss below buy limit")
                     risk = qty * abs(limit - stop)
                     if risk > equity * _MAX_RISK_FRACTION + 1e-8:
                         raise ValueError(
