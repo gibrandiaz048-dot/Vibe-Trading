@@ -60,7 +60,7 @@ class StockPaperExecutionTool(BaseTool):
                         "limit": {"type": "number"},
                         "stop_loss": {"type": "number"},
                     },
-                    "required": ["symbol", "side", "qty", "limit", "stop_loss"],
+                    "required": ["symbol", "side", "qty", "limit"],
                     "additionalProperties": False,
                 },
             },
