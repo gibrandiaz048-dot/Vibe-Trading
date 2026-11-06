@@ -40,6 +40,18 @@ def register_universe_bridge_routes(
             "snapshot": state.get("snapshot"),
             "last_sync_epoch": state.get("last_sync_epoch"),
             "last_error": state.get("last_error") or state.get("last_sync_error"),
+            "market_prices": state.get("market_prices", {}),
+            "paper_only": True,
+            "real_orders_enabled": False,
+        }
+
+    @app.get("/universe/core/market", dependencies=[Depends(require_local_or_auth)])
+    async def universe_core_market():
+        state = _load_state()
+        return {
+            "connected": bool(state.get("connected")),
+            "exchange": "Coinbase Exchange",
+            "prices": state.get("market_prices", {}),
             "paper_only": True,
             "real_orders_enabled": False,
         }

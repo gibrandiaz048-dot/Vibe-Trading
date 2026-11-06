@@ -82,6 +82,17 @@ class VibeUniverseBridge:
         events = self.state.setdefault("events", [])
         events.append(event)
         del events[:-MAX_EVENTS]
+        if event.get("type") == "COINBASE_MARKET_TICKER":
+            ticker = event.get("ticker")
+            if isinstance(ticker, dict) and ticker.get("product"):
+                prices = self.state.setdefault("market_prices", {})
+                prices[str(ticker["product"]).upper()] = {
+                    **ticker,
+                    "source": "COINBASE_EXCHANGE",
+                    "received_epoch": time.time(),
+                    "paper_only": True,
+                    "real_orders_enabled": False,
+                }
         self.state["last_event_epoch"] = time.time()
         self.state["connected"] = True
         self.persist()
