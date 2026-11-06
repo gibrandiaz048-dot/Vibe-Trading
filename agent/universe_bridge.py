@@ -63,6 +63,25 @@ def _extract_trade_proposal(report: str) -> dict[str, Any] | None:
     return proposal
 
 
+def _build_swarm_payload(run_id: str, run: dict[str, Any], report: str) -> dict[str, Any]:
+    """Build the authenticated bridge payload; only explicit proposals are forwarded."""
+    payload: dict[str, Any] = {
+        "swarm_id": run_id,
+        "report": report[:30000],
+        "report_type": "CRYPTO_NEWS" if "news" in str(run.get("preset_name", "")).lower() else "SWARM_REPORT",
+    }
+    proposal = run.get("trade_proposal")
+    if not isinstance(proposal, dict):
+        proposal = _extract_trade_proposal(report)
+    if proposal is not None:
+        required = {"trade_id", "strategy", "asset", "direction", "amount", "risk_score"}
+        if required.issubset(proposal):
+            payload["trade_proposal"] = proposal
+        else:
+            LOG.warning("Ignoring incomplete native Vibe trade proposal.")
+    return payload
+
+
 def _read_json(path: Path, fallback: Any) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -179,16 +198,8 @@ class VibeUniverseBridge:
                     report = run.get("final_report") or run.get("report")
                     if not isinstance(report, str) or not report.strip():
                         continue
-                    payload = {
-                        "swarm_id": run_id,
-                        "report": report[:30000],
-                        "report_type": "CRYPTO_NEWS" if "news" in str(run.get("preset_name", "")).lower() else "SWARM_REPORT",
-                    }
-                    proposal = run.get("trade_proposal")
-                    if not isinstance(proposal, dict):
-                        proposal = _extract_trade_proposal(report)
-                    if proposal is not None:
-                        payload["trade_proposal"] = proposal
+                    payload = _build_swarm_payload(run_id, run, report)
+                    if "trade_proposal" in payload:
                         LOG.info("Vibe run %s produced a structured proposal for Universe RISK review.", run_id)
                     forwarded = await self.http.post(
                         f"{CORE_API}/api/integrations/vibe/swarm-report",
