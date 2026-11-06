@@ -19,6 +19,12 @@ from typing import Any
 
 import httpx
 import websockets
+from dotenv import load_dotenv
+
+# Match Vibe-Trading's normal runtime environment locations. Explicit process
+# variables win; no credentials are copied into source files.
+load_dotenv(Path.home() / ".vibe-trading" / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 LOG = logging.getLogger("vibe_universe_bridge")
 CORE_API = os.getenv("UNIVERSE_CORE_API_URL", "http://127.0.0.1:8767").rstrip("/")
