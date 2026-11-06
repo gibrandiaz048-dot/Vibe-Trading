@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,27 @@ RUNTIME_DIR = Path(os.getenv("VIBE_TRADING_HOME", str(Path.home() / ".vibe-tradi
 STATE_FILE = RUNTIME_DIR / "bridge_state.json"
 SENT_FILE = RUNTIME_DIR / "forwarded_swarm_runs.json"
 MAX_EVENTS = 500
+
+
+def _extract_trade_proposal(report: str) -> dict[str, Any] | None:
+    """Read only an explicitly tagged JSON proposal; narrative text is never traded."""
+    match = re.search(r"```trade_proposal\s*(\{.*?\})\s*```", report, re.DOTALL | re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        proposal = json.loads(match.group(1))
+    except (TypeError, ValueError):
+        LOG.warning("Vibe report contained an invalid trade_proposal JSON block.")
+        return None
+    if not isinstance(proposal, dict):
+        LOG.warning("Vibe trade_proposal must be a JSON object.")
+        return None
+    required = {"trade_id", "strategy", "asset", "direction", "amount", "risk_score"}
+    missing = required.difference(proposal)
+    if missing:
+        LOG.warning("Vibe trade_proposal missing required fields: %s", ", ".join(sorted(missing)))
+        return None
+    return proposal
 
 
 def _read_json(path: Path, fallback: Any) -> Any:
@@ -162,6 +184,12 @@ class VibeUniverseBridge:
                         "report": report[:30000],
                         "report_type": "CRYPTO_NEWS" if "news" in str(run.get("preset_name", "")).lower() else "SWARM_REPORT",
                     }
+                    proposal = run.get("trade_proposal")
+                    if not isinstance(proposal, dict):
+                        proposal = _extract_trade_proposal(report)
+                    if proposal is not None:
+                        payload["trade_proposal"] = proposal
+                        LOG.info("Vibe run %s produced a structured proposal for Universe RISK review.", run_id)
                     forwarded = await self.http.post(
                         f"{CORE_API}/api/integrations/vibe/swarm-report",
                         json=payload,
