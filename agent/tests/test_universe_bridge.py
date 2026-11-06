@@ -26,7 +26,7 @@ def _proposal():
 
 
 def test_extracts_only_explicit_tagged_proposal():
-    report = "Desk agrees.\\n\x60\x60\x60trade_proposal\\n" + __import__("json").dumps(_proposal()) + "\\n\x60\x60\x60"
+    report = "Desk agrees.\n\x60\x60\x60trade_proposal\n" + __import__("json").dumps(_proposal()) + "\n\x60\x60\x60"
     assert bridge._extract_trade_proposal(report) == _proposal()
 
 
@@ -35,8 +35,8 @@ def test_narrative_without_tag_never_becomes_proposal():
 
 
 def test_malformed_or_incomplete_tag_is_ignored():
-    assert bridge._extract_trade_proposal("\x60\x60\x60trade_proposal\\n{bad json}\\n\x60\x60\x60") is None
-    assert bridge._extract_trade_proposal("\x60\x60\x60trade_proposal\\n{\"asset\":\"BTC-USD\"}\\n\x60\x60\x60") is None
+    assert bridge._extract_trade_proposal("\x60\x60\x60trade_proposal\n{bad json}\n\x60\x60\x60") is None
+    assert bridge._extract_trade_proposal("\x60\x60\x60trade_proposal\n{\"asset\":\"BTC-USD\"}\n\x60\x60\x60") is None
 
 
 def test_payload_forwards_explicit_proposal_to_risk_contract():
@@ -45,7 +45,7 @@ def test_payload_forwards_explicit_proposal_to_risk_contract():
     assert payload["swarm_id"] == "run-123"
     assert "trade_proposal" not in payload
 
-    payload = bridge._build_swarm_payload("run-124", {}, "report\\n\x60\x60\x60trade_proposal\\n" + __import__("json").dumps(proposal) + "\\n\x60\x60\x60")
+    payload = bridge._build_swarm_payload("run-124", {}, "report\n\x60\x60\x60trade_proposal\n" + __import__("json").dumps(proposal) + "\n\x60\x60\x60")
     assert payload["trade_proposal"] == proposal
 
 
