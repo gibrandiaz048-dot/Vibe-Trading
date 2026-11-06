@@ -257,6 +257,11 @@ register_swarm_routes(app)
 
 from src.api.swarm_routes import _get_swarm_runtime  # noqa: F401, E402
 
+# --- Universe Core bridge (read-only cached market/trade/news state) ---
+from src.api.universe_bridge_routes import register_universe_bridge_routes  # noqa: E402
+register_universe_bridge_routes(app, require_local_or_auth)
+
+
 # --- Live trading ---
 from src.api.live_routes import register_live_routes  # noqa: E402
 register_live_routes(app)
