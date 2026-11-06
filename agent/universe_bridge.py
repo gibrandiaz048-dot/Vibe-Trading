@@ -32,6 +32,7 @@ CORE_WS = os.getenv("UNIVERSE_CORE_WS_URL", "ws://127.0.0.1:8767/ws/integrations
 VIBE_API = os.getenv("VIBE_TRADING_API_URL", "http://127.0.0.1:8000").rstrip("/")
 BRIDGE_TOKEN = os.getenv("UNIVERSE_VIBE_TOKEN", "")
 VIBE_API_TOKEN = os.getenv("VIBE_TRADING_API_TOKEN", "")
+BRIDGE_ENABLED = os.getenv("UNIVERSE_BRIDGE_ENABLED", "false").strip().lower() == "true"
 SYNC_SECONDS = max(5, int(os.getenv("UNIVERSE_BRIDGE_SYNC_SECONDS", "15")))
 SWARM_POLL_SECONDS = max(10, int(os.getenv("UNIVERSE_BRIDGE_SWARM_POLL_SECONDS", "20")))
 RUNTIME_DIR = Path(os.getenv("VIBE_TRADING_HOME", str(Path.home() / ".vibe-trading"))) / "universe-core"
@@ -127,7 +128,7 @@ class VibeUniverseBridge:
         headers = {"X-Vibe-Token": BRIDGE_TOKEN}
         while not self.stop.is_set():
             try:
-                response = await self.http.get(f"{VIBE_API}/swarm/runs", headers={"X-Vibe-Token": ""} if False else None)
+                response = await self.http.get(f"{VIBE_API}/swarm/runs")
                 response.raise_for_status()
                 runs = response.json()
                 if not isinstance(runs, list):
@@ -176,6 +177,9 @@ class VibeUniverseBridge:
 
 async def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    if not BRIDGE_ENABLED:
+        LOG.info("Bridge disabled; set UNIVERSE_BRIDGE_ENABLED=true to start it.")
+        return
     bridge = VibeUniverseBridge()
     await bridge.run()
 
