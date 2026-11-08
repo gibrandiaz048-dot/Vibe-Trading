@@ -20,12 +20,35 @@ from typing import Any
 
 import httpx
 import websockets
-from dotenv import load_dotenv
+# Read .env files without assuming UTF-8: Windows PowerShell 5.1 writes
+# UTF-16LE by default. Explicit process variables always take precedence.
+def _load_env_file(path: Path) -> None:
+    if not path.is_file():
+        return
+    try:
+        raw = path.read_bytes()
+        if raw.startswith((b"\\xff\\xfe", b"\\xfe\\xff")) or b"\\x00" in raw[:256]:
+            content = raw.decode("utf-16")
+        else:
+            content = raw.decode("utf-8-sig")
+        for raw_line in content.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key, value = key.strip(), value.strip()
+            if value.startswith(("'", '"')) and value.endswith(("'", '"')) and len(value) >= 2:
+                value = value[1:-1]
+            if key and key.replace("_", "").isalnum():
+                os.environ.setdefault(key, value)
+    except (OSError, UnicodeError) as exc:
+        logging.getLogger("vibe_universe_bridge").warning("Could not read %s: %s", path, exc)
 
-# Match Vibe-Trading's normal runtime environment locations. Explicit process
-# variables win; no credentials are copied into source files.
-load_dotenv(Path.home() / ".vibe-trading" / ".env")
-load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
+
+# User config first, then Vibe-Trading project root, then legacy agent folder.
+_load_env_file(Path.home() / ".vibe-trading" / ".env")
+_load_env_file(Path(__file__).resolve().parents[1] / ".env")
+_load_env_file(Path(__file__).resolve().parent / ".env")
 
 LOG = logging.getLogger("vibe_universe_bridge")
 CORE_API = os.getenv("UNIVERSE_CORE_API_URL", "http://127.0.0.1:8766").rstrip("/")
