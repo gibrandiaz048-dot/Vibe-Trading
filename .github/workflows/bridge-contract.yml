@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install project dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install pytest httpx websockets
       - name: Validate bridge syntax
         run: python -m py_compile agent/universe_bridge.py
       - name: Run bridge contract tests
