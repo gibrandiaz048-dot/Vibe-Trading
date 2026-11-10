@@ -188,3 +188,6 @@ agent/tests/artifacts/
 
 # Local simulated account ledgers
 /paper-trading/
+
+# Universe Core bridge runtime data
+/universe-core/
