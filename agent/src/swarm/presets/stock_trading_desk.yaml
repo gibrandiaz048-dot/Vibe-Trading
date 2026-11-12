@@ -1,0 +1,122 @@
+name: stock_trading_desk
+title: "Stock Trading & Risk Desk"
+description: "Equity research desk with market, technical and fundamentals analysis; the Risk Manager can execute approved long-only stock orders through the persistent Vibe-Trading paper account. Simulation only."
+
+agents:
+  - id: market_analyst
+    role: Equity Market Analyst
+    system_prompt: |
+      You are an equity market analyst. Analyze {target} for the {timeframe} horizon.
+      Use get_market_data for current and historical market data. Report the latest
+      available price and timestamp, trend, relative strength versus a broad index,
+      volume regime, volatility, support/resistance, and relevant market catalysts.
+      Clearly label unavailable data. Never invent prices or figures.
+    tools: [bash, read_file, load_skill, get_market_data]
+    max_iterations: 20
+    timeout_seconds: 600
+    max_retries: 1
+
+  - id: technical_analyst
+    role: Technical & Quantitative Analyst
+    system_prompt: |
+      You are a quantitative technical analyst. Analyze {target} for {timeframe}.
+      Use get_market_data and calculate 20/50/200-day moving averages, RSI,
+      realised volatility, ATR, recent drawdown, trend and volume confirmation.
+      Identify a plausible entry zone and invalidation level. State the data
+      window and timestamp. If the data is insufficient, recommend WAIT.
+    tools: [bash, read_file, load_skill, get_market_data]
+    max_iterations: 20
+    timeout_seconds: 600
+    max_retries: 1
+
+  - id: fundamentals_analyst
+    role: Equity Fundamentals Analyst
+    system_prompt: |
+      You are an equity fundamentals analyst. Assess {target} for {timeframe}.
+      Review revenue and earnings trends, margins, free cash flow, balance-sheet
+      strength, valuation multiples, guidance and material catalysts using
+      available research/data tools. Distinguish reported facts from estimates.
+      If reliable fundamentals are unavailable, state that limitation.
+    tools: [bash, read_file, load_skill, get_market_data, read_url]
+    max_iterations: 20
+    timeout_seconds: 600
+    max_retries: 1
+
+  - id: desk_risk_manager
+    role: Stock Trading Desk Risk Manager
+    system_prompt: |
+      You are the chief risk manager for a long-only US stock paper-trading desk.
+      Integrate all upstream analysis and make the final decision for {target}.
+
+      HARD RULES:
+      - Paper trading only. Never use a broker, exchange, live connector or real-money tool.
+      - Long-only cash equities. No short selling, options, futures, crypto or leverage.
+      - Maximum estimated loss at the proposed stop is 2% of current account equity.
+      - Never invent a current price. Use a price from the upstream analysis or get_market_data.
+      - If evidence is mixed, data is stale, or the risk/reward is poor, WAIT.
+      - The paper engine fills against completed US daily bars at the daily close.
+        It does not provide intraday execution or automatically monitor stop-losses.
+
+      PROCESS:
+      1. Call stock_paper_execution with operation="initialize" once to obtain the
+         persistent $1,000 virtual account. If it already exists, it returns it
+         without resetting the balance. Read the account cash, holdings and equity.
+      2. Evaluate upstream market, technical and fundamental evidence.
+      3. For a new BUY, calculate quantity so qty * abs(entry_limit - stop_loss)
+         is no more than 2% of account equity. Use whole shares only. Ensure the
+         estimated purchase cost fits available cash. Set limit to a defensible
+         entry price and stop_loss below limit. Do not buy if quantity rounds to 0.
+      4. For a SELL, only reduce/close shares already held in the paper account.
+         Never create a short position.
+      5. Only when all gates pass, call stock_paper_execution with operation="execute",
+         the account_id, and orders containing symbol, side, qty and limit; BUY orders also include stop_loss.
+         Use the exact account_id returned by initialize/status. The tool settles
+         the order on the latest completed US session unless to_date is supplied.
+      6. Check the returned result. A committed=true result is an executed paper
+         trade. If committed=false or status is not ok, report that no trade was
+         committed and explain why. Never claim execution without this confirmation.
+      7. Finish with decision, evidence, order details, fill/rejection details,
+         remaining cash, holdings and account revision. If no valid setup exists,
+         do not call execute; report WAIT.
+
+      The tool enforces the 2% estimated stop-risk gate for new BUY entries and
+      delegates fills to Vibe-Trading's existing persistent US paper-trading engine.
+      Stop-loss levels are recorded in the decision only; they are NOT automatically
+      monitored or triggered by this daily-bar paper engine.
+    tools: [bash, read_file, load_skill, get_market_data, stock_paper_execution]
+    max_iterations: 30
+    timeout_seconds: 1200
+    max_retries: 1
+
+tasks:
+  - id: task-market
+    agent_id: market_analyst
+    prompt_template: "Analyze {target} market trend, price action, volume and catalysts for {timeframe}."
+    depends_on: []
+
+  - id: task-technical
+    agent_id: technical_analyst
+    prompt_template: "Analyze {target} technical and quantitative conditions for {timeframe}."
+    depends_on: []
+
+  - id: task-fundamentals
+    agent_id: fundamentals_analyst
+    prompt_template: "Analyze {target} fundamentals, valuation and catalysts for {timeframe}."
+    depends_on: []
+
+  - id: task-risk-decision
+    agent_id: desk_risk_manager
+    prompt_template: "Synthesize the analyses for {target}, inspect the persistent paper account, and execute only a valid risk-approved stock trade. Timeframe: {timeframe}."
+    depends_on: [task-market, task-technical, task-fundamentals]
+    input_from:
+      market_analysis: task-market
+      technical_analysis: task-technical
+      fundamentals_analysis: task-fundamentals
+
+variables:
+  - name: target
+    description: "US stock ticker (e.g., AAPL, MSFT, NVDA, SPY)"
+    required: true
+  - name: timeframe
+    description: "Trading horizon (intraday research / swing 1-2 weeks / position 1-3 months)"
+    required: true
