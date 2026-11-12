@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
+
+import pytest
 
 from src.channels.websocket import WebSocketChannel
 from src.channelsui.websocket_logging import websockets_server_logger
@@ -17,6 +20,11 @@ def test_websockets_server_logger_is_a_logger_not_a_factory():
 
 
 def test_websocket_channel_starts_on_a_unix_socket():
+    # AF_UNIX is a platform capability, not a requirement for the TCP channel.
+    # Keep this POSIX-specific integration test out of Windows runs that lack it.
+    if not hasattr(socket, "AF_UNIX"):
+        pytest.skip("Unix-domain sockets are not supported by this Python platform")
+
     from src.channels.bus.queue import MessageBus
 
     # macOS caps unix socket paths at 104 chars, so keep it short
